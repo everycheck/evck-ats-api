@@ -1,0 +1,569 @@
+openapi: 3.0.0
+info:
+  title: EveryCheck ATS
+  description: This API allows integration with Applicant Tracking Systems (ATS) to manage job applications, retrieve assessment records, and download related documents.
+  version: 1.0.0
+  contact:
+    email: contact@everycheck.fr
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+  schemas:
+    Assessment:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
+        date:
+          type: string
+          format: date-time
+          description: Last modification date
+        status:
+          type: string
+          enum:
+            - Created
+            - ClientSealed
+            - ApplicantSealed
+            - CheckFinished
+            - CheckCanceled
+          description: |
+            Enum to represent the status of a job application.
+            Possible values:
+            - `Created`: The application has been received but not yet started.
+            - `ClientSealed`: The application is started, waiting for applicant filling.
+            - `ApplicantSealed`: The candidate has filled the forms.
+            - `CheckFinished`: The application's checks have been completed.
+            - `CheckCanceled`: The application's checks have been canceled.
+        link:
+          type: string
+          format: uri
+          example: https://www.everycheck.com/study/6a60093f-87f5-48b6-b82b-3fe308e26f4e
+          description: URL to access the assessment on EveryCheck platform
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Check'
+        survey:
+          type: object
+          properties:
+            score:
+              type: number
+              description: Surveys score
+            link:
+              type: string
+              format: uri
+              example: https://www.everycheck.com/study/6a60093f-87f5-48b6-b82b-3fe308e26f4e/surveys
+              description: URL to access the assessment's surveys on EveryCheck platform
+    Check:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          example: 378fd87e-579d-48e5-b375-8c84eed85618
+        type:
+          type: string
+          enum:
+            - Identity
+            - Diploma
+            - Job
+          description: |
+            Enum to represent the type of a check.
+            Possible values:
+            - `Identity`: An identity.
+            - `Diploma`: A diploma.
+            - `Job`: A job experience.
+        outcome:
+          type: string
+          enum:
+            - CheckConfirmed
+            - CheckRejected
+            - CheckUnconfirmed
+            - UnCheckable
+          description: |
+            Enum to represent the status of a check.
+            The value is visible only after a review from a manager.
+            Possible values:
+            - `CheckConfirmed`: No discrepancy has been found.
+            - `CheckRejected`: A major discrepancy has been found.
+            - `CheckUnconfirmed`: A minor discrepancy has been found.
+            - `UnCheckable`: We're not able to verify this check.
+        link:
+          type: string
+          format: uri
+          example: https://www.everycheck.com/audit/378fd87e-579d-48e5-b375-8c84eed85618
+          description: URL to access the check on EveryCheck platform
+        survey:
+          description: The survey is only available for `Job` type.
+          type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+              example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
+            status:
+              type: string
+              description: |
+                Enum to represent the status of a survey.
+                Possible values:
+                - `opened`: The survey is opened.
+                - `done`: The survey is done.
+                - `abandoned`: The survey is abandoned.
+                - `declined`: The survey is declined.
+              enum:
+                - opened
+                - done
+                - abandoned
+                - declined
+            firstname:
+              type: string
+            lastname:
+              type: string
+            score:
+              type: number
+            comment:
+              type: string
+              description: comment from the referent
+            responses:
+              type: array
+              items:
+                type: object
+                properties: 
+                  question:
+                    type: string
+                  value:
+                    type: string
+                  attention:
+                    type: boolean
+              example:
+                - question: "What is your favorite color?"
+                  value: "Blue"
+                - question: "How old are you?"
+                  value: "25"
+                  attention: true
+    User:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        firstname:
+          type: string
+          minLength: 2
+          maxLength: 255
+        lastname:
+          type: string
+          minLength: 2
+          maxLength: 255
+    Package:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
+        name:
+          type: string
+        docs:
+          type: array
+          items:
+            type: object
+            properties:
+              type: 
+                type: string
+                enum:
+                  - identity
+                  - job
+                  - diploma
+                  - other
+                  - survey
+              amount:
+                type: integer
+              desc:
+                type: string
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Invalid credentials."
+security:
+  - ApiKeyAuth: []
+servers:
+  - url: https://assessment.everycheck.com/v1
+    description: Production server
+  - url: https://assessment.everycheck.info/v1
+    description: Sandbox server
+  - url: http://localhost:8000/api/ats
+    description: Development server
+tags:
+  - name: Assessment
+    description: Retrieve assessment informations
+  - name: Security
+  - name: User
+paths:
+  /assessment:
+    post:
+      tags:
+        - Assessment
+      summary: Create an assessment
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF file, 10MB max
+                email:
+                  type: string
+                  format: email
+                package:
+                  type: string
+                  format: uuid
+                  description: specify the package for this assessment
+                recruiter_email:
+                  type: string
+                  format: email
+                label:
+                  type: string
+                  description: identifier for the assessment
+                survey:
+                  type: string
+                  format: uuid
+                  description: specify the survey for this assessment
+                phone:
+                  type: string
+                firstname:
+                  type: string
+                lastname:
+                  type: string
+                diplomas:
+                  type: string
+                  description: specify the names of the diplomas to be checked
+                jobs:
+                  type: string
+                  description: specify the job names to be checked
+                comment:
+                  type: string
+                  description: comment to help our team
+                recruiter_firstname:
+                  type: string
+                recruiter_lastname:
+                  type: string
+                recruiter_team:
+                  type: string
+                  description: default value is "Global"
+              required: 
+                - file
+                - email
+                - package
+                - recruiter_email
+            encoding:
+              file:
+                contentType: application/pdf
+                style: form
+                headers:
+                  Content-Length:
+                    description: Maximum file size in bytes
+                    schema:
+                      type: integer
+                      maximum: 10485760
+      responses:
+        '201':
+          description: A JSON of assessment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  children:
+                    type: object
+                    properties:
+                      file:
+                        type: array
+                        items:
+                          type: string
+                        maxItems: 0
+                      email:
+                        type: array
+                        items:
+                          type: string
+                        maxItems: 0
+                      package:
+                        type: object
+                        properties:
+                          errors:
+                            type: array
+                            items:
+                              type: string
+                              example: This value is not valid.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      tags:
+        - Assessment
+      summary: List assessments
+      description: Returns a list of assessments starting from a specified date (must be within the past 7 days).
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+            example: 2006-01-02T15:04:05
+          description: The start date for listing assessments (must be within the past 7 days). Format must be date-time (e.g., 2006-01-02T15:04:05).
+        - name: 'pageToken'
+          in: query
+          description: Token for the next page
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A JSON array of assessments
+          content:
+            application/json:
+              schema:
+                  type: object
+                  properties:
+                    assessments:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Assessment'
+                    next_page_token:
+                      type: string
+        '400':
+          description: Invalid date parameter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  children:
+                    type: object
+                    properties:
+                      pageToken:
+                        type: array
+                        items:
+                          type: string
+                      startDate:
+                        type: object
+                        properties:
+                          errors:
+                            type: array
+                            items:
+                              type: string
+                              example: must be within the past 7 days
+              examples:
+                missing_date:
+                  summary: Missing required start date
+                  value:
+                    children:
+                      pageToken: []
+                      startDate:
+                        errors:
+                          - "this value should not be blank"
+                bad_date:
+                  summary: Bad start date
+                  value:
+                    children:
+                      pageToken: []
+                      startDate:
+                        errors:
+                          - "must be within the past 7 days"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /assessment/{uuid}/download:
+    get:
+      tags:
+        - Assessment
+      summary: Download assessment report
+      description: Returns a PDF file for the specified assessment Uuid.
+      parameters:
+        - in: path
+          name: uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
+          description: The uuid of the assessment to download.
+      responses:
+        '200':
+          description: A PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Assessment not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Study not found"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /assessment/{uuid}/surveys/download:
+    get:
+      tags:
+        - Assessment
+      summary: Download assessment's surveys report
+      description: Returns a PDF file for the specified assessment Uuid.
+      parameters:
+        - in: path
+          name: uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
+          description: The uuid of the assessment to download.
+      responses:
+        '200':
+          description: A PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '204':
+          description: Content not found
+        '404':
+          description: Assessment not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Study not found"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /security/users:
+    put:
+      tags:
+        - Security
+      summary: Set and replace users allowed to connect
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/User"
+      responses:
+        '200':
+          description: Users list updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: number
+                  updated:
+                     type: number
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  children:
+                    type: object
+                    properties:
+                      users:
+                        type: object
+                        properties:
+                          children:
+                            type: object
+                            additionalProperties:
+                              type: object
+                              properties:
+                                children:
+                                  type: object
+                                  properties:
+                                    lastname:
+                                      type: object
+                                      properties:
+                                        errors:
+                                          type: array
+                                          items:
+                                            type: string
+              example:
+                children:
+                  "0":
+                    children:
+                      email:
+                        errors:
+                          - "This value is not a valid email."
+                      firstname:
+                        errors:
+                          - "lower than min length of 2"
+                      lastname:
+                        errors:
+                          - "higher than max length of 255"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /user/profile:
+    get:
+      tags:
+        - User
+      summary: List available packages and surveys
+      description: Returns a list of packages and surveys that can be used to specify assessment rules.
+      responses:
+        '200':
+          description: A list of packages and surveys
+          content:
+           application/json:
+              schema:
+                  type: object
+                  properties:
+                    packages:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Package'
+                    surveys:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          uuid:
+                            type: string
+                            format: uuid
+                            example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
+                          name:
+                            type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
