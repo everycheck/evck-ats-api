@@ -163,6 +163,10 @@ components:
           type: string
           minLength: 2
           maxLength: 255
+        team:
+          type: string
+          minLength: 2
+          maxLength: 255
     Package:
       type: object
       properties:
@@ -205,8 +209,10 @@ security:
 servers:
   - url: https://assessment.everycheck.com/v1
     description: Production server
-  - url: https://assessment.everycheck.info/v1
+  - url: https://monespace-public.everycheck.com/api/ats
     description: Sandbox server
+  - url: https://monespace-qa.everycheck.info/api/ats
+    description: QA server (internal)
   - url: http://localhost:8000/api/ats
     description: Development server
 tags:
