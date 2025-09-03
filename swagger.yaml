@@ -1,7 +1,12 @@
 openapi: 3.0.0
 info:
   title: EveryCheck ATS
-  description: This API allows integration with Applicant Tracking Systems (ATS) to manage job applications, retrieve assessment records, and download related documents.
+  description: >
+      This API allows integration with Applicant Tracking Systems (ATS) to manage job applications, retrieve assessment records, and download related documents.
+      
+      #### Authentication
+      
+      This API requires authentication using an API key. Add your API key to every request in the HTTP header `X-Auth-Token`.
   version: 1.0.0
   contact:
     email: contact@everycheck.fr
@@ -193,6 +198,12 @@ components:
                 type: integer
               desc:
                 type: string
+  ExperienceType:
+    type: string
+    enum:
+      - job
+      - diploma
+    description: Type of experience entry
   responses:
     Unauthorized:
       description: Unauthorized
@@ -211,6 +222,8 @@ servers:
     description: Production server
   - url: https://monespace-public.everycheck.com/api/ats
     description: Sandbox server
+  - url: https://monespace.everycheck.info/api/ats
+    description: DEV server (internal)
   - url: https://monespace-qa.everycheck.info/api/ats
     description: QA server (internal)
   - url: http://localhost:8000/api/ats
@@ -235,7 +248,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: PDF file, 10MB max
+                  description: PDF file, 8MB max
                 email:
                   type: string
                   format: email
@@ -246,35 +259,96 @@ paths:
                 recruiter_email:
                   type: string
                   format: email
+                  example: "recruiter@example.com"
                 label:
                   type: string
                   description: identifier for the assessment
+                  example: "ID123"
                 survey:
                   type: string
                   format: uuid
                   description: specify the survey for this assessment
                 phone:
                   type: string
+                  example: "+33123456789"
                 firstname:
                   type: string
+                  example: "John"
                 lastname:
                   type: string
+                  example: "Doe"
                 diplomas:
                   type: string
                   description: specify the names of the diplomas to be checked
+                  example: "Bachelor of Science in Computer Science"
                 jobs:
                   type: string
                   description: specify the job names to be checked
+                  example: "Senior Developer"
                 comment:
                   type: string
                   description: comment to help our team
+                  example: "This is a comment to help the team."
                 recruiter_firstname:
                   type: string
+                  example: "Alice"
                 recruiter_lastname:
                   type: string
+                  example: "Smith"
                 recruiter_team:
                   type: string
                   description: default value is "Global"
+                  example: ""
+                "experiences[0][type]":
+                  type: string
+                  enum:
+                    - Job
+                    - Diploma
+                  description: Type of the first experience
+                  example: "Job"
+                "experiences[0][name]":
+                  type: string
+                  description: Job title/name for the first experience
+                  example: "Senior Developer"
+                "experiences[0][place]":
+                  type: string
+                  description: Company/place for the first experience
+                  example: "TechCorp"
+                "experiences[0][start]":
+                  type: string
+                  format: date
+                  description: Start date (YYYY-MM format) for the first experience
+                  example: "2020-01"
+                "experiences[0][end]":
+                  type: string
+                  format: date
+                  description: End date (YYYY-MM format) for the first experience
+                  example: "2022-12"
+                "experiences[1][type]":
+                  type: string
+                  enum:
+                    - Job
+                    - Diploma
+                  description: Type of the second experience
+                  example: "Diploma"
+                "experiences[1][name]":
+                  type: string
+                  description: Job title/name for the second experience
+                  example: "Bachelor of Science in Computer Science"
+                "experiences[1][place]":
+                  type: string
+                  description: Company/place for the second experience
+                  example: "StartupXYZ"
+                "experiences[1][start]":
+                  type: string
+                  format: date
+                  description: Start date (YYYY-MM format) for the second experience
+                  example: "2018-06"
+                "experiences[1][end]":
+                  type: string
+                  format: date
+                  description: End date (YYYY-MM format) for the second experience
+                  example: "2019-12"
               required: 
                 - file
                 - email
@@ -425,6 +499,16 @@ paths:
               schema:
                 type: string
                 format: binary
+        '409':
+          description: Assessment is not ready for report generation, it must be completed by a checker.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Cannot generate report: the assessment is not yet eligible."
         '404':
           description: Assessment not found
           content:
