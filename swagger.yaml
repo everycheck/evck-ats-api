@@ -218,9 +218,9 @@ components:
 security:
   - ApiKeyAuth: []
 servers:
-  - url: https://assessment.everycheck.com/v1
+  - url: https://ats.everycheck.com
     description: Production server
-  - url: https://monespace-public.everycheck.com/api/ats
+  - url: https://ats-public.everycheck.com
     description: Sandbox server
   - url: https://monespace.everycheck.info/api/ats
     description: DEV server (internal)
