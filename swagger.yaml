@@ -226,7 +226,7 @@ servers:
     description: DEV server (internal)
   - url: https://monespace-qa.everycheck.info/api/ats
     description: QA server (internal)
-  - url: http://localhost:8000/api/ats
+  - url: https://monespace.everycheck.local/api/ats
     description: Development server
 tags:
   - name: Assessment
