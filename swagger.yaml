@@ -17,161 +17,6 @@ components:
       in: header
       name: X-Auth-Token
   schemas:
-    Assessment:
-      type: object
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
-        date:
-          type: string
-          format: date-time
-          description: Last modification date
-        status:
-          type: string
-          enum:
-            - Created
-            - ClientSealed
-            - ApplicantSealed
-            - CheckFinished
-            - CheckCanceled
-          description: |
-            Enum to represent the status of a job application.
-            Possible values:
-            - `Created`: The application has been received but not yet started.
-            - `ClientSealed`: The application is started, waiting for applicant filling.
-            - `ApplicantSealed`: The candidate has filled the forms.
-            - `CheckFinished`: The application's checks have been completed.
-            - `CheckCanceled`: The application's checks have been canceled.
-        link:
-          type: string
-          format: uri
-          example: https://www.everycheck.com/study/6a60093f-87f5-48b6-b82b-3fe308e26f4e
-          description: URL to access the assessment on EveryCheck platform
-        checks:
-          type: array
-          items:
-            $ref: '#/components/schemas/Check'
-        survey:
-          type: object
-          properties:
-            score:
-              type: number
-              description: Surveys score
-            link:
-              type: string
-              format: uri
-              example: https://www.everycheck.com/study/6a60093f-87f5-48b6-b82b-3fe308e26f4e/surveys
-              description: URL to access the assessment's surveys on EveryCheck platform
-    Check:
-      type: object
-      properties:
-        uuid:
-          type: string
-          format: uuid
-          example: 378fd87e-579d-48e5-b375-8c84eed85618
-        type:
-          type: string
-          enum:
-            - Identity
-            - Diploma
-            - Job
-          description: |
-            Enum to represent the type of a check.
-            Possible values:
-            - `Identity`: An identity.
-            - `Diploma`: A diploma.
-            - `Job`: A job experience.
-        outcome:
-          type: string
-          enum:
-            - CheckConfirmed
-            - CheckRejected
-            - CheckUnconfirmed
-            - UnCheckable
-          description: |
-            Enum to represent the status of a check.
-            The value is visible only after a review from a manager.
-            Possible values:
-            - `CheckConfirmed`: No discrepancy has been found.
-            - `CheckRejected`: A major discrepancy has been found.
-            - `CheckUnconfirmed`: A minor discrepancy has been found.
-            - `UnCheckable`: We're not able to verify this check.
-        link:
-          type: string
-          format: uri
-          example: https://www.everycheck.com/audit/378fd87e-579d-48e5-b375-8c84eed85618
-          description: URL to access the check on EveryCheck platform
-        survey:
-          description: The survey is only available for `Job` type.
-          type: object
-          properties:
-            uuid:
-              type: string
-              format: uuid
-              example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
-            status:
-              type: string
-              description: |
-                Enum to represent the status of a survey.
-                Possible values:
-                - `opened`: The survey is opened.
-                - `done`: The survey is done.
-                - `abandoned`: The survey is abandoned.
-                - `declined`: The survey is declined.
-              enum:
-                - opened
-                - done
-                - abandoned
-                - declined
-            firstname:
-              type: string
-            lastname:
-              type: string
-            score:
-              type: number
-            comment:
-              type: string
-              description: comment from the referent
-            responses:
-              type: array
-              items:
-                type: object
-                properties: 
-                  question:
-                    type: string
-                  value:
-                    type: string
-                  attention:
-                    type: boolean
-              example:
-                - question: "What is your favorite color?"
-                  value: "Blue"
-                - question: "How old are you?"
-                  value: "25"
-                  attention: true
-    User:
-      type: object
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          format: email
-          maxLength: 255
-        firstname:
-          type: string
-          minLength: 2
-          maxLength: 255
-        lastname:
-          type: string
-          minLength: 2
-          maxLength: 255
-        team:
-          type: string
-          minLength: 2
-          maxLength: 255
     Package:
       type: object
       properties:
@@ -198,12 +43,6 @@ components:
                 type: integer
               desc:
                 type: string
-  ExperienceType:
-    type: string
-    enum:
-      - job
-      - diploma
-    description: Type of experience entry
   responses:
     Unauthorized:
       description: Unauthorized
@@ -228,16 +67,9 @@ servers:
     description: QA server (internal)
   - url: https://monespace.everycheck.local/api/ats
     description: Development server
-tags:
-  - name: Assessment
-    description: Retrieve assessment informations
-  - name: Security
-  - name: User
 paths:
-  /assessment:
+  /webhook:
     post:
-      tags:
-        - Assessment
       summary: Create an assessment
       requestBody:
         content:
@@ -245,132 +77,214 @@ paths:
             schema:
               type: object
               properties:
-                file:
-                  type: string
-                  format: binary
-                  description: PDF file, 8MB max
-                email:
-                  type: string
-                  format: email
+                # --- Required ---
                 package:
                   type: string
                   format: uuid
-                  description: specify the package for this assessment
+                  description: UUID of the package to use (from `/config`)
+                resume:
+                  description: Candidate's resume — a PDF file (8MB max) or an HTTPS URL to the document
+                  oneOf:
+                    - type: string
+                      format: binary
+                    - type: string
+                      format: uri
+                email:
+                  type: string
+                  format: email
+                  description: Candidate's email address
                 recruiter_email:
                   type: string
                   format: email
+                  description: Recruiter's email address
                   example: "recruiter@example.com"
+                update_url:
+                  type: string
+                  format: uri
+                  description: Callback URL (HTTPS) called by our system to push assessment result updates
+                  example: "https://ats.example.com/everycheck/callback"
+                # --- Optional — Candidate ---
+                firstname:
+                  type: string
+                  maxLength: 255
+                  description: Candidate's first name
+                  example: "John"
+                lastname:
+                  type: string
+                  maxLength: 255
+                  description: Candidate's last name
+                  example: "Doe"
+                phone:
+                  type: string
+                  maxLength: 20
+                  description: Candidate's phone number
+                  example: "+33123456789"
+                identity:
+                  description: Candidate's identity document — a file (8MB max) or an HTTPS URL
+                  oneOf:
+                    - type: string
+                      format: binary
+                    - type: string
+                      format: uri
+                authorization:
+                  description: Candidate's signed authorization — a file (8MB max) or an HTTPS URL
+                  oneOf:
+                    - type: string
+                      format: binary
+                    - type: string
+                      format: uri
+                # --- Optional — Recruiter ---
+                recruiter_firstname:
+                  type: string
+                  maxLength: 255
+                  description: Recruiter's first name
+                  example: "Alice"
+                recruiter_lastname:
+                  type: string
+                  maxLength: 255
+                  description: Recruiter's last name
+                  example: "Smith"
+                recruiter_team:
+                  type: string
+                  maxLength: 255
+                  description: Recruiter's team
+                  example: "Global"
+                # --- Optional — Additional information ---
                 label:
                   type: string
-                  description: identifier for the assessment
+                  description: Identifier for the assessment
                   example: "ID123"
                 survey:
                   type: string
                   format: uuid
-                  description: specify the survey for this assessment
-                phone:
-                  type: string
-                  example: "+33123456789"
-                firstname:
-                  type: string
-                  example: "John"
-                lastname:
-                  type: string
-                  example: "Doe"
+                  description: Questionnaire UUID (from `/config`, required if the package includes a reference check)
                 diplomas:
                   type: string
-                  description: specify the names of the diplomas to be checked
+                  maxLength: 255
+                  description: Information about diplomas to check
                   example: "Bachelor of Science in Computer Science"
                 jobs:
                   type: string
-                  description: specify the job names to be checked
+                  maxLength: 255
+                  description: Information about jobs to check
                   example: "Senior Developer"
                 comment:
                   type: string
-                  description: comment to help our team
+                  maxLength: 512
+                  description: Free comment to help our team
                   example: "This is a comment to help the team."
-                recruiter_firstname:
-                  type: string
-                  example: "Alice"
-                recruiter_lastname:
-                  type: string
-                  example: "Smith"
-                recruiter_team:
-                  type: string
-                  description: default value is "Global"
-                  example: ""
+                # --- Optional — Experiences (experiences[], max 6 entries) ---
                 "experiences[0][type]":
                   type: string
                   enum:
-                    - Job
-                    - Diploma
+                    - job
+                    - diploma
                   description: Type of the first experience
-                  example: "Job"
+                  example: "job"
                 "experiences[0][name]":
                   type: string
-                  description: Job title/name for the first experience
+                  minLength: 1
+                  maxLength: 255
+                  description: Title for the first experience
                   example: "Senior Developer"
                 "experiences[0][place]":
                   type: string
-                  description: Company/place for the first experience
+                  minLength: 1
+                  maxLength: 255
+                  description: Location / institution for the first experience
                   example: "TechCorp"
                 "experiences[0][start]":
                   type: string
-                  format: date
                   description: Start date (YYYY-MM format) for the first experience
                   example: "2020-01"
                 "experiences[0][end]":
                   type: string
-                  format: date
-                  description: End date (YYYY-MM format) for the first experience
+                  description: End date (YYYY-MM format, ≥ start) for the first experience
                   example: "2022-12"
+                "experiences[0][file]":
+                  description: Experience file for the first experience — a file (8MB max) or an HTTPS URL
+                  oneOf:
+                    - type: string
+                      format: binary
+                    - type: string
+                      format: uri
                 "experiences[1][type]":
                   type: string
                   enum:
-                    - Job
-                    - Diploma
+                    - job
+                    - diploma
                   description: Type of the second experience
-                  example: "Diploma"
+                  example: "diploma"
                 "experiences[1][name]":
                   type: string
-                  description: Job title/name for the second experience
+                  minLength: 1
+                  maxLength: 255
+                  description: Title for the second experience
                   example: "Bachelor of Science in Computer Science"
                 "experiences[1][place]":
                   type: string
-                  description: Company/place for the second experience
+                  minLength: 1
+                  maxLength: 255
+                  description: Location / institution for the second experience
                   example: "StartupXYZ"
                 "experiences[1][start]":
                   type: string
-                  format: date
                   description: Start date (YYYY-MM format) for the second experience
                   example: "2018-06"
                 "experiences[1][end]":
                   type: string
-                  format: date
-                  description: End date (YYYY-MM format) for the second experience
+                  description: End date (YYYY-MM format, ≥ start) for the second experience
                   example: "2019-12"
-              required: 
-                - file
-                - email
+                "experiences[1][file]":
+                  description: Experience file for the second experience — a file (8MB max) or an HTTPS URL
+                  oneOf:
+                    - type: string
+                      format: binary
+                    - type: string
+                      format: uri
+              required:
                 - package
+                - resume
+                - email
                 - recruiter_email
-            encoding:
-              file:
-                contentType: application/pdf
-                style: form
-                headers:
-                  Content-Length:
-                    description: Maximum file size in bytes
-                    schema:
-                      type: integer
-                      maximum: 10485760
+                - update_url
       responses:
         '201':
           description: A JSON of assessment
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Assessment'
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    format: uuid
+                    example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
+                  date:
+                    type: string
+                    format: date-time
+                    description: Last modification date
+                  status:
+                    type: string
+                    enum:
+                      - Created
+                      - ClientSealed
+                      - ApplicantSealed
+                      - CheckFinished
+                      - CheckCanceled
+                    description: |
+                      Enum to represent the status of a job application.
+                      Possible values:
+                      - `Created`: The application has been received but not yet started.
+                      - `ClientSealed`: The application is started, waiting for applicant filling.
+                      - `ApplicantSealed`: The candidate has filled the forms.
+                      - `CheckFinished`: The application's checks have been completed.
+                      - `CheckCanceled`: The application's checks have been canceled.
+                  link:
+                    type: string
+                    format: uri
+                    example: https://www.everycheck.com/study/6a60093f-87f5-48b6-b82b-3fe308e26f4e
+                    description: URL to access the assessment on EveryCheck platform
         '400':
           description: Invalid request
           content:
@@ -401,235 +315,8 @@ paths:
                               example: This value is not valid.
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /config:
     get:
-      tags:
-        - Assessment
-      summary: List assessments
-      description: Returns a list of assessments starting from a specified date (must be within the past 7 days).
-      parameters:
-        - name: startDate
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date-time
-            example: 2006-01-02T15:04:05
-          description: The start date for listing assessments (must be within the past 7 days). Format must be date-time (e.g., 2006-01-02T15:04:05).
-        - name: 'pageToken'
-          in: query
-          description: Token for the next page
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: A JSON array of assessments
-          content:
-            application/json:
-              schema:
-                  type: object
-                  properties:
-                    assessments:
-                      type: array
-                      items:
-                        $ref: '#/components/schemas/Assessment'
-                    next_page_token:
-                      type: string
-        '400':
-          description: Invalid date parameter
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  children:
-                    type: object
-                    properties:
-                      pageToken:
-                        type: array
-                        items:
-                          type: string
-                      startDate:
-                        type: object
-                        properties:
-                          errors:
-                            type: array
-                            items:
-                              type: string
-                              example: must be within the past 7 days
-              examples:
-                missing_date:
-                  summary: Missing required start date
-                  value:
-                    children:
-                      pageToken: []
-                      startDate:
-                        errors:
-                          - "this value should not be blank"
-                bad_date:
-                  summary: Bad start date
-                  value:
-                    children:
-                      pageToken: []
-                      startDate:
-                        errors:
-                          - "must be within the past 7 days"
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /assessment/{uuid}/download:
-    get:
-      tags:
-        - Assessment
-      summary: Download assessment report
-      description: Returns a PDF file for the specified assessment Uuid.
-      parameters:
-        - in: path
-          name: uuid
-          required: true
-          schema:
-            type: string
-            format: uuid
-            example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
-          description: The uuid of the assessment to download.
-      responses:
-        '200':
-          description: A PDF file
-          content:
-            application/pdf:
-              schema:
-                type: string
-                format: binary
-        '409':
-          description: Assessment is not ready for report generation, it must be completed by a checker.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Cannot generate report: the assessment is not yet eligible."
-        '404':
-          description: Assessment not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Study not found"
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /assessment/{uuid}/surveys/download:
-    get:
-      tags:
-        - Assessment
-      summary: Download assessment's surveys report
-      description: Returns a PDF file for the specified assessment Uuid.
-      parameters:
-        - in: path
-          name: uuid
-          required: true
-          schema:
-            type: string
-            format: uuid
-            example: 6a60093f-87f5-48b6-b82b-3fe308e26f4e
-          description: The uuid of the assessment to download.
-      responses:
-        '200':
-          description: A PDF file
-          content:
-            application/pdf:
-              schema:
-                type: string
-                format: binary
-        '204':
-          description: Content not found
-        '404':
-          description: Assessment not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Study not found"
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /security/users:
-    put:
-      tags:
-        - Security
-      summary: Set and replace users allowed to connect
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: "#/components/schemas/User"
-      responses:
-        '200':
-          description: Users list updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  created:
-                    type: number
-                  updated:
-                     type: number
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  children:
-                    type: object
-                    properties:
-                      users:
-                        type: object
-                        properties:
-                          children:
-                            type: object
-                            additionalProperties:
-                              type: object
-                              properties:
-                                children:
-                                  type: object
-                                  properties:
-                                    lastname:
-                                      type: object
-                                      properties:
-                                        errors:
-                                          type: array
-                                          items:
-                                            type: string
-              example:
-                children:
-                  "0":
-                    children:
-                      email:
-                        errors:
-                          - "This value is not a valid email."
-                      firstname:
-                        errors:
-                          - "lower than min length of 2"
-                      lastname:
-                        errors:
-                          - "higher than max length of 255"
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /user/profile:
-    get:
-      tags:
-        - User
       summary: List available packages and surveys
       description: Returns a list of packages and surveys that can be used to specify assessment rules.
       responses:
