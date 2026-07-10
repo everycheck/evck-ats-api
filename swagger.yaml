@@ -7,6 +7,8 @@ info:
       #### Authentication
       
       This API requires authentication using an API key. Add your API key to every request in the HTTP header `X-Auth-Token`.
+
+      Every request must also include the `ats-version` header (current value: `1`).
   version: 1.0.0
   contact:
     email: contact@everycheck.fr
@@ -16,6 +18,16 @@ components:
       type: apiKey
       in: header
       name: X-Auth-Token
+  parameters:
+    AtsVersion:
+      name: ats-version
+      in: header
+      required: true
+      description: API version of the ATS integration
+      schema:
+        type: string
+        default: "1"
+        example: "1"
   schemas:
     Package:
       type: object
@@ -71,6 +83,8 @@ paths:
   /webhook:
     post:
       summary: Create an assessment
+      parameters:
+        - $ref: '#/components/parameters/AtsVersion'
       requestBody:
         content:
           multipart/form-data:
@@ -319,6 +333,8 @@ paths:
     get:
       summary: List available packages and surveys
       description: Returns a list of packages and surveys that can be used to specify assessment rules.
+      parameters:
+        - $ref: '#/components/parameters/AtsVersion'
       responses:
         '200':
           description: A list of packages and surveys
